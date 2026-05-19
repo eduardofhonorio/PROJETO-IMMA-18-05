@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "264593866481",
+    "project_id": "projeto-imma-6fd72",
+    "storage_bucket": "projeto-imma-6fd72.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:264593866481:android:69108edff36cce77307350",
+        "android_client_info": {
+          "package_name": "br.app.projeto02.projeto02"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDdq8c4WO0Facn0EzBnXqvelh96-Y1GPKg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

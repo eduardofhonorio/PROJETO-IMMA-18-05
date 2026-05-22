@@ -54,12 +54,6 @@ class _ClientesPageState extends State<ClientesPage> {
                   Row(
                     children: [
                       _buildHeaderIcon(Icons.person_outline, 'Perfil', onTap: () {}),
-                      const SizedBox(width: 12),
-                      _buildHeaderIcon(Icons.notifications_none, 'Notificações', badge: '2', onTap: () {}),
-                      const SizedBox(width: 12),
-                      _buildHeaderIcon(Icons.settings_outlined, 'Configurações', onTap: () {
-                        // Lembre-se de manter sua função de logout aqui se for o caso!
-                      }),
                     ],
                   ),
                 ],

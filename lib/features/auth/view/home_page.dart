@@ -1,7 +1,7 @@
-
 import 'package:flutter/material.dart';
-import 'package:projeto02/features/auth/view/configuracoes_page.dart';
+import 'package:projeto02/features/auth/view/comissoes_page.dart';
 import 'package:projeto02/features/auth/view/produtos_page.dart';
+import 'package:projeto02/features/auth/view/vales_page.dart';
 import 'package:projeto02/features/auth/viewmodel/home_viewmodel.dart';
 
 class HomePage extends StatefulWidget {
@@ -16,15 +16,12 @@ class _HomePageState extends State<HomePage> {
   final Color corFundo = const Color(0xFFF9F9F9); // Off-white
   final Color corBotao = const Color(0xFFB70000);
 
-
   final HomeViewModel _viewModel = HomeViewModel();
 
   // Função que abre a aba da IA e dispara a requisição
   void _abrirModalIA() {
-    // 1. Dispara a lógica de busca e IA por trás dos panos
     _viewModel.gerarRecomendacao();
 
-    // 2. Abre a aba visual na tela
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -33,7 +30,7 @@ class _HomePageState extends State<HomePage> {
       ),
       builder: (context) {
         return AnimatedBuilder(
-          animation: _viewModel, // Ouve as mudanças (carregando -> concluído)
+          animation: _viewModel,
           builder: (context, child) {
             return Container(
               padding: const EdgeInsets.all(24),
@@ -57,7 +54,6 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const Divider(height: 32),
                   
-                  // Se estiver carregando, mostra o loading. Se terminou, mostra o texto da IA!
                   Expanded(
                     child: _viewModel.isLoadingRecomendacao
                         ? Center(
@@ -77,8 +73,7 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                   ),
-                  
-                  // Botão para fechar a aba
+                 
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -100,263 +95,284 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
- @override
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            // CABEÇALHO VERMELHO
-            Container(
-              color: corPrimaria,
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Image.asset(
-                    "assets/images/logo_IMMA.png",
-                    height: 45,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const Icon(Icons.local_shipping, size: 40, color: Colors.white),
-                  ),
-                  Row(
+    return AnimatedBuilder(
+      animation: _viewModel,
+      builder: (context, child) {
+        return Scaffold(
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                // CABEÇALHO VERMELHO
+                Container(
+                  color: corPrimaria,
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _buildHeaderIcon(Icons.person_outline, 'Perfil', () {}),
-                      const SizedBox(width: 16),
-                      _buildHeaderIcon(Icons.notifications_none, 'Notificações', () {}, badge: '2'),
-                      const SizedBox(width: 16),
-                      _buildHeaderIcon(Icons.settings_outlined, 'Configurações', () {
-                        // 1. Mostra a notificação (SnackBar) na tela
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Acessando configurações...'),
-                            backgroundColor: Color.fromARGB(255, 74, 0, 0), // Cor bordô da IMMA
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                        
-                        // 2. Imediatamente depois, navega para a nova tela
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ConfiguracoesPage(),
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // CORPO DA TELA COM SCROLL
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // SAUDAÇÃO
-                    RichText(
-                      text: const TextSpan(
-                        text: 'Olá, ',
-                        style: TextStyle(fontSize: 22, color: Colors.black87),
+                      Image.asset(
+                        "assets/images/logo_IMMA.png",
+                        height: 45,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(Icons.local_shipping, size: 40, color: Colors.white),
+                      ),
+                      Row(
                         children: [
-                          TextSpan(text: 'Vendedor!', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black)),
+                          _buildHeaderIcon(Icons.person_outline, 'Perfil', () {}),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
 
-                    // ROTA DO DIA
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // CORPO DA TELA COM SCROLL
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        
+                        // SAUDAÇÃO DINÂMICA
+                        RichText(
+                          text: TextSpan( 
+                            text: 'Olá, ',
+                            style: const TextStyle(fontSize: 22, color: Colors.black87),
+                            children: [
+                              TextSpan(
+                                text: '${_viewModel.nomeVendedor}!', 
+                                style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.black)
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // ROTA DO DIA
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Icon(Icons.location_on_outlined, color: Colors.black87, size: 28),
-                            SizedBox(width: 8),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [     
-                                Text('Rota de Hoje', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
-                                Text('Arceburgo e Região', style: TextStyle(fontSize: 14, color: Colors.black54)),
+                            const Row(
+                              children: [
+                                Icon(Icons.location_on_outlined, color: Colors.black87, size: 28),
+                                SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [     
+                                    Text('Rota de Hoje', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+                                    Text('Arceburgo e Região', style: TextStyle(fontSize: 14, color: Colors.black54)),
+                                  ],
+                                ),
                               ],
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
+                        const SizedBox(height: 24),
 
-                    // BANNER PROMOCIONAL
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: [corPrimaria, corBotao], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                        // BANNER PROMOCIONAL
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(colors: [corPrimaria, corBotao], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.inventory_2_outlined, color: Colors.white, size: 28),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: const Text('Seu atacado de confiança para o seu negócio crescer!', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                              Row(
+                                children: [
+                                  const Icon(Icons.inventory_2_outlined, color: Colors.white, size: 28),
+                                  const SizedBox(width: 8),
+                                  const Expanded(
+                                    child: Text('Seu atacado de confiança para o seu negócio crescer!', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                                  )
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  _buildBannerTag(Icons.sell_outlined, 'Preços\ncompetitivos'),
+                                  _buildBannerTag(Icons.local_shipping_outlined, 'Entrega\nrápida'),
+                                  _buildBannerTag(Icons.verified_outlined, 'Produtos de\nqualidade'),
+                                ],
                               )
                             ],
                           ),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              _buildBannerTag(Icons.sell_outlined, 'Preços\ncompetitivos'),
-                              _buildBannerTag(Icons.local_shipping_outlined, 'Entrega\nrápida'),
-                              _buildBannerTag(Icons.verified_outlined, 'Produtos de\nqualidade'),
-                            ],
-                          )
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
- // TÍTULO CATEGORIAS
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Produtos em Estoque', 
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)
                         ),
-                        
-                        // Envolvemos a Row do "Ver todos" com o GestureDetector para virar um botão
-                        GestureDetector(
-                          onTap: () {
-                            // Ação que empilha a nova tela de catálogo de produtos
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const ProdutosPage()),
-                            );
-                          },
-                          child: const Row(
-                            children: [
-                              Text(
-                                'Ver todos', 
-                                style: TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.bold)
+                        const SizedBox(height: 24),
+
+                        // TÍTULO CATEGORIAS
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Produtos em Estoque', 
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)
+                            ),
+                            
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const ProdutosPage()),
+                                );
+                              },
+                              child: const Row(
+                                children: [
+                                  Text(
+                                    'Ver todos', 
+                                    style: TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.bold)
+                                  ),
+                                  Icon(Icons.chevron_right, size: 16, color: Colors.black54),
+                                ],
                               ),
-                              Icon(Icons.chevron_right, size: 16, color: Colors.black54),
+                            )
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // GRID DE CATEGORIAS
+                        GridView.count(
+                          crossAxisCount: 2,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 1.00,
+                          children: [
+                            _buildCategoriaCard(context, 'Alimentos', 'assets/images/alimentos.png', 'Alimentos'),
+                            _buildCategoriaCard(context, 'Higiene & Limpeza', 'assets/images/higiene.png', 'Higiene & Limpeza'),
+                            _buildCategoriaCard(context, 'Utilidades & Diversos', 'assets/images/utilidades.png', 'Utilidades'), 
+                            _buildCategoriaCard(context, 'Bebidas', 'assets/images/bebidas.png', 'Bebidas'),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+
+                        // CARDS DE RESUMO ESTRATÉGICOS
+                        Row(
+                          children: [
+                            // CARD DE COMISSÕES CLICÁVEL COM A NOVA NAVEGAÇÃO
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ComissoesPage(viewModel: _viewModel), // SÓ ISSO AGORA!
+                                    ),
+                                  );
+                                },
+                                child: _buildInfoCard(
+                                  Icons.monetization_on_outlined, 
+                                  'Minhas Comissões', 
+                                  _viewModel.isLoadingFinanceiro ? 'Calculando...' : 'Atualizado hoje', 
+                                  'R\$ ${_viewModel.totalComissoes.toStringAsFixed(2)}'
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // CARD DE VALES (Ainda mantido aqui como atalho)
+                           Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const ValesPage(), // Abre a nova página!
+                                    ),
+                                  );
+                                },
+                                child: _buildInfoCard(
+                                  Icons.warning_amber_rounded, 
+                                  'Vales na Rota', 
+                                  _viewModel.isLoadingFinanceiro ? 'Calculando...' : 'Cobranças hoje', 
+                                  'R\$ ${_viewModel.totalVales.toStringAsFixed(2)}'
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        
+                        // CARD DA IA
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF5F5),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFFFD6D6), width: 1.5),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.psychology_outlined, size: 40, color: corBotao),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Obter recomendação por IA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
+                                    const SizedBox(height: 4),
+                                    const Text('Receba sugestões personalizadas para aumentar suas vendas.', style: TextStyle(fontSize: 11, color: Colors.black54)),
+                                    const SizedBox(height: 12),
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: corBotao,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      ),
+                                      onPressed: _abrirModalIA, 
+                                      icon: const Icon(Icons.auto_awesome, color: Colors.white, size: 16),
+                                      label: const Text('Gerar recomendações', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                                    )
+                                  ],
+                                ),
+                              )
                             ],
                           ),
-                        )
+                        ),
+                        const SizedBox(height: 100), 
                       ],
                     ),
-                    const SizedBox(height: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
 
-                    // GRID DE CATEGORIAS
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 1.00,
-                      children: [
-                        _buildCategoriaCard(context, 'Alimentos', 'assets/images/alimentos.png', 'Alimentos'),
-                        _buildCategoriaCard(context, 'Higiene & Limpeza', 'assets/images/higiene.png', 'Higiene & Limpeza'),
-                        _buildCategoriaCard(context, 'Utilidades & Diversos', 'assets/images/utilidades.png', 'Utilidades'), 
-                        _buildCategoriaCard(context, 'Bebidas', 'assets/images/bebidas.png', 'Bebidas'),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
-                    // CARDS DE RESUMO (PEDIDOS E METAS)
-                    Row(
-                      children: [
-                        Expanded(child: _buildInfoCard(Icons.receipt_long, 'Pedidos Recentes', '5 novos hoje', 'R\$ 2.728,59')),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildInfoCard(Icons.trending_up, 'Metas Mensais', '72% concluído', 'R\$ 25.693,29')),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
-                    // CARD DA INTELIGÊNCIA ARTIFICIAL (GEMINI)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF5F5),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFFFD6D6), width: 1.5),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.psychology_outlined, size: 40, color: corBotao),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Obter recomendação por IA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
-                                const SizedBox(height: 4),
-                                const Text('Receba sugestões personalizadas para aumentar suas vendas.', style: TextStyle(fontSize: 11, color: Colors.black54)),
-                                const SizedBox(height: 12),
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: corBotao,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  ),
-                                  onPressed: _abrirModalIA, // CHAMA A FUNÇÃO DA IA
-                                  icon: const Icon(Icons.auto_awesome, color: Colors.white, size: 16),
-                                  label: const Text('Gerar recomendações', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                                )
-                              ],
-                            ),
-                          )
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 100), // Espaço para a barra inferior não cobrir o conteúdo
+          // BOTTOM NAVIGATION BAR
+          bottomNavigationBar: Container(
+            color: corFundo,
+            child: SafeArea(
+              child: Container(
+                margin: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: corPrimaria,
+                  borderRadius: BorderRadius.circular(40),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4)),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildBottomNavItem(Icons.people_alt_outlined, 'Clientes', false, () {
+                      Navigator.pushReplacementNamed(context, '/clientes'); 
+                    }),
+                    _buildBottomNavItem(Icons.home, 'Início', true, () {}),
+                    _buildBottomNavItem(Icons.content_paste_outlined, 'Pedidos', false, () {
+                      Navigator.pushReplacementNamed(context, '/pedidos');
+                    }),
                   ],
                 ),
               ),
             ),
-          ],
-        ),
-      ),
-
-      // BOTTOM NAVIGATION BAR
-      bottomNavigationBar: Container(
-        color: corFundo,
-        child: SafeArea(
-          child: Container(
-            margin: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: corPrimaria,
-              borderRadius: BorderRadius.circular(40),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4)),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildBottomNavItem(Icons.people_alt_outlined, 'Clientes', false, () {
-                  // Ajuste as rotas conforme configuradas no seu app_routes.dart
-                  Navigator.pushReplacementNamed(context, '/clientes'); 
-                }),
-                _buildBottomNavItem(Icons.home, 'Início', true, () {}),
-                _buildBottomNavItem(Icons.content_paste_outlined, 'Pedidos', false, () {
-                  Navigator.pushReplacementNamed(context, '/pedidos');
-                }),
-              ],
-            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -401,10 +417,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-   Widget _buildCategoriaCard(BuildContext context, String titulo, String caminhoImagem, String filtro) {
+  Widget _buildCategoriaCard(BuildContext context, String titulo, String caminhoImagem, String filtro) {
     return GestureDetector(
       onTap: () {
-        // Agora a função tem o "context" e o "filtro" necessários para abrir a página certa!
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -440,7 +455,6 @@ class _HomePageState extends State<HomePage> {
                   child: Image.asset(
                     caminhoImagem,
                     fit: BoxFit.cover,
-                    // Se a imagem ainda não existir na pasta, ele mostra um ícone cinza para não quebrar a tela
                     errorBuilder: (context, error, stackTrace) => Icon(Icons.image_outlined, size: 40, color: Colors.grey.shade300),
                   ),
                 ),

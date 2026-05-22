@@ -4,39 +4,50 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:projeto02/features/auth/model/pedido_model.dart';
 import 'package:projeto02/features/auth/model/produto_model.dart'; // Necessário para o Firestore
 
-
 class PedidoViewModel extends ChangeNotifier {
-  // Lista temporária que armazena os itens do pedido atual (Imagem fazendopedido.PNG)
+  // Lista temporária que armazena os itens do pedido atual
   List<ItemPedidoModel> carrinho = [];
   
   // Identificador do vendedor logado para garantir a SEGREGACÃO DE DADOS
   final String? userId = FirebaseAuth.instance.currentUser?.uid;
 
-  // --- 1. LÓGICA DE LISTAGEM E FILTRAGEM (Referência: pedidos.png) ---
+  // ==========================================
+  // NOVO: CONTROLE DE PAGAMENTO (VALES)
+  // ==========================================
+  // Variável para controlar o botão selecionado (Padrão: À Vista)
+  String formaPagamentoSelecionada = 'À Vista';
+
+  // Função chamada ao clicar nos botões de pagamento da tela
+  void selecionarPagamento(String pagamento) {
+    formaPagamentoSelecionada = pagamento;
+    notifyListeners(); // Atualiza a cor do botão na tela para o vendedor
+  }
+
+  // --- 1. LÓGICA DE LISTAGEM E FILTRAGEM ---
 
   // Retorna um stream do Firestore filtrado pelo vendedor atual (Privacidade)
   Stream<QuerySnapshot> getPedidosStream(String filtro) {
     Query query = FirebaseFirestore.instance
         .collection('pedidos')
-        .where('vendedorId', isEqualTo: userId); // Garante que e-mails diferentes vejam dados diferentes
+        .where('vendedorId', isEqualTo: userId); 
 
     // Implementação dos filtros de data solicitados
     if (filtro == "Hoje") {
       DateTime hoje = DateTime.now();
       DateTime inicioDia = DateTime(hoje.year, hoje.month, hoje.day);
-      query = query.where('dataCriacao', isGreaterThanOrEqualTo: inicioDia);
+      query = query.where('criadoEm', isGreaterThanOrEqualTo: inicioDia); // Padronizado para criadoEm
     } else if (filtro == "Ontem") {
       DateTime ontem = DateTime.now().subtract(const Duration(days: 1));
       DateTime inicioOntem = DateTime(ontem.year, ontem.month, ontem.day);
       DateTime fimOntem = DateTime(ontem.year, ontem.month, ontem.day, 23, 59, 59);
-      query = query.where('dataCriacao', isGreaterThanOrEqualTo: inicioOntem)
-                   .where('dataCriacao', isLessThanOrEqualTo: fimOntem);
+      query = query.where('criadoEm', isGreaterThanOrEqualTo: inicioOntem) // Padronizado para criadoEm
+                   .where('criadoEm', isLessThanOrEqualTo: fimOntem);
     }
 
     return query.snapshots();
   }
 
-  // --- 2. GESTÃO DO CARRINHO (Referência: fazendopedido.PNG) ---
+  // --- 2. GESTÃO DO CARRINHO ---
 
   void adicionarProduto(ProdutoModel produto) {
     // Adiciona o produto ao carrinho com quantidade inicial 1
@@ -87,10 +98,12 @@ class PedidoViewModel extends ChangeNotifier {
     return null; // Passou na validação!
   }
 
-  // --- 4. SALVAMENTO NO BANCO DE DADOS ---
+  // ==========================================
+  // 4. SALVAMENTO NO BANCO DE DADOS
+  // ==========================================
   
-  Future<void> finalizarPedido(String clienteNome, String pagamento) async {
-    if (pagamento.isEmpty) {
+  Future<void> finalizarPedido(String clienteNome, String cidade) async {
+    if (formaPagamentoSelecionada.isEmpty) {
       throw "A forma de pagamento (À Vista, 7, 14, 21 ou 28 dias) é obrigatória.";
     }
 
@@ -102,14 +115,17 @@ class PedidoViewModel extends ChangeNotifier {
       await FirebaseFirestore.instance.collection('pedidos').add({
         'vendedorId': userId, 
         'clienteNome': clienteNome,
+        'cidade': cidade, // NOVO: Salva a cidade para o Filtro de Vales funcionar
         'itens': carrinho.map((i) => i.toMap()).toList(),
         'total': calcularTotal(),
-        'formaPagamento': pagamento,
-        'dataCriacao': FieldValue.serverTimestamp(), 
+        'pagamento': formaPagamentoSelecionada, // CHAVE CORRIGIDA para Vales/Comissões
+        'criadoEm': FieldValue.serverTimestamp(), // CHAVE CORRIGIDA para Vales/Comissões
       });
       
-
+      // Limpa o carrinho após o sucesso
       carrinho.clear();
+      // Volta o botão de pagamento para o padrão
+      formaPagamentoSelecionada = 'À Vista'; 
       notifyListeners();
     } catch (e) {
       throw "Erro ao salvar pedido: $e";

@@ -146,11 +146,7 @@ class _ProdutosPageState extends State<ProdutosPage> {
                   ),
                   Row(
                     children: [
-                      _buildHeaderIcon(Icons.person_outline, 'Perfil', onTap: () {}),
-                      const SizedBox(width: 12),
-                      _buildHeaderIcon(Icons.notifications_none, 'Notificações', badge: '2', onTap: () {}),
-                      const SizedBox(width: 12),
-                      _buildHeaderIcon(Icons.settings_outlined, 'Ajustes', onTap: () {}),
+                      _buildHeaderIcon(Icons.person_outline, 'Perfil', onTap: () {}), 
                     ],
                   ),
                 ],

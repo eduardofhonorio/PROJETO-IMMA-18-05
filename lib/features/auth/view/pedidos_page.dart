@@ -67,17 +67,10 @@ class _PedidosPageState extends State<PedidosPage> {
                   Row(
                     children: [
                       _buildHeaderIcon(Icons.person_outline, 'Perfil', onTap: () {}),
-                      const SizedBox(width: 16),
-                      _buildHeaderIcon(Icons.notifications_none, 'Notificações', badge: '2', onTap: () {}),
-                      const SizedBox(width: 16),
-                      _buildHeaderIcon(Icons.settings_outlined, 'Configurações', onTap: () {
-                        FirebaseAuth.instance.signOut();
-                        Navigator.pushReplacementNamed(context, AppRoutes.login);
-                      }),
                     ],
                   ),
                 ],
-              ),
+              ),  
             ),
 
             Expanded(

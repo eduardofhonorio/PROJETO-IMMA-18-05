@@ -133,12 +133,9 @@ class _NovoPedidoPageState extends State<NovoPedidoPage> {
                 if (formKey.currentState!.validate()) {
                   final int dias = int.parse(diasController.text);
                   
-                  // AQUI VOCÊ CONECTA COM O SEU VIEWMODEL!
-                  // Exemplo: _viewModel.setPrazoPagamento(dias);
                   
                   Navigator.pop(context); // Fecha o pop-up
                   
-                  // Dá um feedback de sucesso pro usuário (opcional)
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Prazo de $dias dias aplicado!'), 
@@ -400,14 +397,20 @@ class _NovoPedidoPageState extends State<NovoPedidoPage> {
       final String? vendedorId = FirebaseAuth.instance.currentUser?.uid;
       if (vendedorId == null) throw Exception("Vendedor não autenticado.");
 
+      // Pegando o nome
       String nomeDoClienteSalvo = (_clienteSelecionado!['nomeFantasia'] != null && _clienteSelecionado!['nomeFantasia'].toString().isNotEmpty)
           ? _clienteSelecionado!['nomeFantasia']
           : _clienteSelecionado!['razaoSocial'] ?? 'Sem nome';
 
+      // NOVO: Extraindo a cidade do cliente selecionado (importante para o filtro de Vales na Rota funcionar!)
+      // Tenta pegar 'cidade', se não existir tenta 'municipio', se não houver nenhuma, salva como não informada.
+      String cidadeDoCliente = _clienteSelecionado!['cidade'] ?? _clienteSelecionado!['municipio'] ?? 'Cidade não informada';
+
       await FirebaseFirestore.instance.collection('pedidos').add({
         'vendedorId': vendedorId,
         'clienteId': _clienteIdSelecionado, 
-        'clienteNome': nomeDoClienteSalvo,  
+        'clienteNome': nomeDoClienteSalvo,
+        'cidade': cidadeDoCliente, // <--- ADICIONADO AQUI PARA ALIMENTAR O FILTRO
         'total': _totalCarrinho,
         'pagamento': pagamentoSelecionado,
         'quantidadeItens': _quantidadeItens,
@@ -421,7 +424,7 @@ class _NovoPedidoPageState extends State<NovoPedidoPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Pedido enviado com sucesso!'), backgroundColor: Colors.green),
         );
-        Navigator.pop(context);
+        Navigator.pop(context); // Volta para a tela anterior
       }
     } catch (e) {
       if (mounted) {

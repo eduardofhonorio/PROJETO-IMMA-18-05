@@ -3,8 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AiService {
-  // COLE A SUA CHAVE DO GROQ AQUI MANTENDO AS ASPAS SIMPLES:
-  static const _apiKey = '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'; 
+  static const _apiKey = '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'; 
   
   static const _url = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -25,7 +24,7 @@ class AiService {
         $resumoDeVendas
       ''';
 
-      // Disparando a requisição para o Groq
+      // mandando a requisição para o Groq
       final res = await http.post(
         Uri.parse(_url),
         headers: {
@@ -47,7 +46,6 @@ class AiService {
 
       final data = jsonDecode(res.body);
       
-      // AQUI ESTÁ A LINHA CORRIGIDA COM O ÍNDICE  EXIGIDO PELA API:
       return data['choices'][0]['message']['content']?.trim() ?? 'Nenhuma recomendação pôde ser gerada.';
       
     } catch (e) {

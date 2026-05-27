@@ -3,13 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-
 class NovoPedidoPage extends StatefulWidget {
-  // 1. Criamos a variável opcional para receber os dados do pedido que será editado
-  final Map<String, dynamic>? pedidoExistente;
-
-  // 2. Adicionamos a variável no construtor (o '?' e a falta de 'required' tornam ela opcional)
-  const NovoPedidoPage({super.key, this.pedidoExistente});
+  const NovoPedidoPage({super.key});
 
   @override
   State<NovoPedidoPage> createState() => _NovoPedidoPageState();
@@ -19,6 +14,7 @@ class _NovoPedidoPageState extends State<NovoPedidoPage> {
   final Color corPrimaria = const Color(0xFF480404);
   final Color corFundo = const Color(0xFFF9F9F9);
   final Color corBotao = const Color(0xFFB70000);
+
 
   String pagamentoSelecionado = '14 Dias';
   final List<String> opcoesPagamento = ['À Vista', '7 Dias', '14 Dias', '21 Dias', '28 Dias', '30 Dias', 'Customizar'];
@@ -133,17 +129,20 @@ class _NovoPedidoPageState extends State<NovoPedidoPage> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: () {
-                // Ao clicar em confirmar, roda o validador para checar se é menor que 30
                 if (formKey.currentState!.validate()) {
                   final int dias = int.parse(diasController.text);
-                  
-                  
-                  Navigator.pop(context); // Fecha o pop-up
-                  
+
+                  // Aplica o prazo customizado no estado da tela ANTES de fechar o pop-up
+                  setState(() {
+                    pagamentoSelecionado = '$dias Dias';
+                  });
+
+                  Navigator.pop(context);
+
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Prazo de $dias dias aplicado!'), 
-                      backgroundColor: Colors.green
+                      content: Text('Prazo de $dias dias aplicado!'),
+                      backgroundColor: Colors.green,
                     ),
                   );
                 }
@@ -406,68 +405,29 @@ class _NovoPedidoPageState extends State<NovoPedidoPage> {
           ? _clienteSelecionado!['nomeFantasia']
           : _clienteSelecionado!['razaoSocial'] ?? 'Sem nome';
 
-      // Extraindo a cidade do cliente selecionado (importante para o filtro de Vales na Rota funcionar!)
+      // NOVO: Extraindo a cidade do cliente selecionado (importante para o filtro de Vales na Rota funcionar!)
+      // Tenta pegar 'cidade', se não existir tenta 'municipio', se não houver nenhuma, salva como não informada.
       String cidadeDoCliente = _clienteSelecionado!['cidade'] ?? _clienteSelecionado!['municipio'] ?? 'Cidade não informada';
 
-      // ==============================================================
-      // 1. MONTA OS DADOS DO PEDIDO
-      // (Não passamos o 'criadoEm' aqui ainda, pois ele só vai no Add)
-      // ==============================================================
-      Map<String, dynamic> dadosDoPedido = {
+      await FirebaseFirestore.instance.collection('pedidos').add({
         'vendedorId': vendedorId,
         'clienteId': _clienteIdSelecionado, 
         'clienteNome': nomeDoClienteSalvo,
-        'cidade': cidadeDoCliente, 
+        'cidade': cidadeDoCliente, // <--- ADICIONADO AQUI PARA ALIMENTAR O FILTRO
         'total': _totalCarrinho,
         'pagamento': pagamentoSelecionado,
         'quantidadeItens': _quantidadeItens,
         'status': 'Pendente', 
         'observacao': _observacao, 
         'itens': _carrinho.values.toList(),
-      };
+        'criadoEm': FieldValue.serverTimestamp(),
+      });
 
-      // ==============================================================
-      // 2. VERIFICA SE É EDIÇÃO OU UM PEDIDO NOVO DO ZERO
-      // ==============================================================
-      String? idEdicao = widget.pedidoExistente != null ? widget.pedidoExistente!['id'] : null;
-
-      if (idEdicao != null && idEdicao.isNotEmpty) {
-        // === MODO EDIÇÃO ===
-        // Adiciona um carimbo de quando foi atualizado (opcional, mas boa prática)
-        dadosDoPedido['atualizadoEm'] = FieldValue.serverTimestamp(); 
-        
-        await FirebaseFirestore.instance
-            .collection('pedidos')
-            .doc(idEdicao)
-            .update(dadosDoPedido);
-      } else {
-        // === MODO NOVO PEDIDO ===
-        // Adiciona a data de criação apenas se for um pedido novo
-        dadosDoPedido['criadoEm'] = FieldValue.serverTimestamp(); 
-        
-        await FirebaseFirestore.instance
-            .collection('pedidos')
-            .add(dadosDoPedido);
-      }
-
-  if (mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(idEdicao != null ? 'Pedido atualizado com sucesso!' : 'Pedido enviado com sucesso!'), 
-            backgroundColor: Colors.green
-          ),
+          const SnackBar(content: Text('Pedido enviado com sucesso!'), backgroundColor: Colors.green),
         );
-        
-        // === O PULO DO GATO PARA ATUALIZAR A TELA ===
-        if (idEdicao != null) {
-          // Se for EDIÇÃO: Fecha a tela de Novo Pedido e também fecha a tela de Detalhes
-          Navigator.pop(context); 
-          Navigator.pop(context); 
-        } else {
-          // Se for NOVO PEDIDO: Fecha apenas o Carrinho e volta pra Home
-          Navigator.pop(context); 
-        }
-        // ============================================
+        Navigator.pop(context); // Volta para a tela anterior
       }
     } catch (e) {
       if (mounted) {
@@ -483,51 +443,6 @@ class _NovoPedidoPageState extends State<NovoPedidoPage> {
       }
     }
   }
-  
-@override
-  void initState() {
-    super.initState();
-    
-    if (widget.pedidoExistente != null) {
-      try {
-        final pedido = widget.pedidoExistente!;
-        String clienteSalvo = pedido['clienteNome'] ?? 'Cliente não informado';
-        
-        setState(() {
-          // 1. CARREGA O CLIENTE
-          _clienteSelecionado = {
-            'nomeFantasia': clienteSalvo,
-            'razaoSocial': clienteSalvo,
-            'cidade': pedido['cidade'] ?? '',
-            'municipio': pedido['cidade'] ?? '',
-          };
-
-          // ==============================================================
-          // 2. CARREGA APENAS A FORMA DE PAGAMENTO
-          // ==============================================================
-          pagamentoSelecionado = pedido['pagamento'] ?? 'À Vista';
-          
-          // APAGAMOS O _totalCarrinho e _quantidadeItens DAQUI!
-
-          // ==============================================================
-          // 3. CARREGA O CARRINHO DIRETAMENTE
-          // ==============================================================
-          _carrinho.clear(); 
-          
-          List<dynamic> itensSalvos = pedido['itens'] ?? [];
-          
-          for (var item in itensSalvos) {
-            String chave = item['codigo']?.toString() ?? item['nome']?.toString() ?? DateTime.now().toString();
-            
-            _carrinho[chave] = item;
-          }
-        });
-
-      } catch (e) {
-        debugPrint("🟥 ERRO AO CARREGAR EDIÇÃO DO PEDIDO: $e");
-      }
-    }
-  }   
 
   @override
   Widget build(BuildContext context) {

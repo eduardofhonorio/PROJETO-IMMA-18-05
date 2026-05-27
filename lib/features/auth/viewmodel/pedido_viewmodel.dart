@@ -8,20 +8,31 @@ class PedidoViewModel extends ChangeNotifier {
   // Lista temporária que armazena os itens do pedido atual
   List<ItemPedidoModel> carrinho = [];
   
-  final String? userId = FirebaseAuth.instance.currentUser?.uid;
+  // Getter lazy: só acessa o Firebase quando realmente necessário.
+  // Isso permite instanciar o ViewModel em testes unitários sem Firebase inicializado.
+  String? get userId => FirebaseAuth.instance.currentUser?.uid;
 
+  // ==========================================
+  // NOVO: CONTROLE DE PAGAMENTO (VALES)
+  // ==========================================
+  // Variável para controlar o botão selecionado (Padrão: À Vista)
   String formaPagamentoSelecionada = 'À Vista';
 
+  // Função chamada ao clicar nos botões de pagamento da tela
   void selecionarPagamento(String pagamento) {
     formaPagamentoSelecionada = pagamento;
-    notifyListeners();
+    notifyListeners(); // Atualiza a cor do botão na tela para o vendedor
   }
 
+  // --- 1. LÓGICA DE LISTAGEM E FILTRAGEM ---
+
+  // Retorna um stream do Firestore filtrado pelo vendedor atual (Privacidade)
   Stream<QuerySnapshot> getPedidosStream(String filtro) {
     Query query = FirebaseFirestore.instance
         .collection('pedidos')
         .where('vendedorId', isEqualTo: userId); 
 
+    // Implementação dos filtros de data solicitados
     if (filtro == "Hoje") {
       DateTime hoje = DateTime.now();
       DateTime inicioDia = DateTime(hoje.year, hoje.month, hoje.day);
@@ -33,7 +44,6 @@ class PedidoViewModel extends ChangeNotifier {
       query = query.where('criadoEm', isGreaterThanOrEqualTo: inicioOntem) // Padronizado para criadoEm
                    .where('criadoEm', isLessThanOrEqualTo: fimOntem);
     }
-  
 
     return query.snapshots();
   }
@@ -88,8 +98,12 @@ class PedidoViewModel extends ChangeNotifier {
     
     return null; // Passou na validação!
   }
+
+  // ==========================================
+  // 4. SALVAMENTO NO BANCO DE DADOS
+  // ==========================================
   
-   Future<void> finalizarPedido(String clienteNome, String cidade, {String? pedidoId}) async {
+  Future<void> finalizarPedido(String clienteNome, String cidade) async {
     if (formaPagamentoSelecionada.isEmpty) {
       throw "A forma de pagamento (À Vista, 7, 14, 21 ou 28 dias) é obrigatória.";
     }
@@ -99,36 +113,15 @@ class PedidoViewModel extends ChangeNotifier {
     }
 
     try {
-      // 1. Monta o pacote de dados (JSON) comum para as duas situações
-      Map<String, dynamic> dadosDoPedido = {
+      await FirebaseFirestore.instance.collection('pedidos').add({
         'vendedorId': userId, 
         'clienteNome': clienteNome,
-        'cidade': cidade,
+        'cidade': cidade, // NOVO: Salva a cidade para o Filtro de Vales funcionar
         'itens': carrinho.map((i) => i.toMap()).toList(),
         'total': calcularTotal(),
-        'pagamento': formaPagamentoSelecionada,
-      };
-
-      // 2. Verifica se existe um ID de pedido (Modo Edição)
-      if (pedidoId != null && pedidoId.isNotEmpty) {
-        // === MODO EDIÇÃO ===
-        // Atualiza o documento existente sem sobrescrever a data de 'criadoEm'
-        dadosDoPedido['atualizadoEm'] = FieldValue.serverTimestamp(); // (Opcional) Registra quando foi editado
-        
-        await FirebaseFirestore.instance
-            .collection('pedidos')
-            .doc(pedidoId)
-            .update(dadosDoPedido);
-            
-      } else {
-        // === MODO NOVO PEDIDO ===
-        // Adiciona a data de criação e usa o .add() para gerar um ID automático
-        dadosDoPedido['criadoEm'] = FieldValue.serverTimestamp(); 
-        
-        await FirebaseFirestore.instance
-            .collection('pedidos')
-            .add(dadosDoPedido);
-      }
+        'pagamento': formaPagamentoSelecionada, // CHAVE CORRIGIDA para Vales/Comissões
+        'criadoEm': FieldValue.serverTimestamp(), // CHAVE CORRIGIDA para Vales/Comissões
+      });
       
       // Limpa o carrinho após o sucesso
       carrinho.clear();

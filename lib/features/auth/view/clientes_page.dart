@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:projeto02/app/routes/app_routes.dart';
-import 'package:projeto02/features/auth/view/perfil_page.dart';
+import 'package:projeto02/features/auth/view/detalhes_cliente_page.dart';
 
 class ClientesPage extends StatefulWidget {
   const ClientesPage({super.key});
@@ -54,12 +54,7 @@ class _ClientesPageState extends State<ClientesPage> {
                   // Ícones da direita
                   Row(
                     children: [
-                      _buildHeaderIcon(Icons.person_outline, 'Perfil', onTap: () {
-                         Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const PerfilPage()),
-                         );
-                      }),
+                      _buildHeaderIcon(Icons.person_outline, 'Perfil', onTap: () {}),
                     ],
                   ),
                 ],
@@ -262,8 +257,9 @@ class _ClientesPageState extends State<ClientesPage> {
                                   padding: const EdgeInsets.only(left: 24, right: 24, bottom: 100),
                                   itemCount: clientesFiltrados.length,
                                   itemBuilder: (context, index) {
-                                    var cliente = clientesFiltrados[index].data() as Map<String, dynamic>;
-                                    return _buildClienteCard(cliente);
+                                    var doc = clientesFiltrados[index];
+                                    var cliente = doc.data() as Map<String, dynamic>;
+                                    return _buildClienteCard(doc.id, cliente);
                                   },
                                 ),
                               ),
@@ -331,7 +327,7 @@ class _ClientesPageState extends State<ClientesPage> {
     );
   }
 
-  Widget _buildClienteCard(Map<String, dynamic> cliente) {
+  Widget _buildClienteCard(String clienteId, Map<String, dynamic> cliente) {
     String nomeExibicao = (cliente['nomeFantasia'] != null && cliente['nomeFantasia'].toString().isNotEmpty) 
         ? cliente['nomeFantasia'] 
         : cliente['razaoSocial'] ?? 'Sem Nome';
@@ -340,7 +336,17 @@ class _ClientesPageState extends State<ClientesPage> {
     String cnpj = cliente['cnpjCpf'] ?? 'Não informado';
     String pedidosQtd = cliente['pedidos']?.toString() ?? '0';
 
-    return Container(
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DetalhesClientePage(
+            clienteId: clienteId,
+            clienteData: cliente,
+          ),
+        ),
+      ),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -410,7 +416,8 @@ class _ClientesPageState extends State<ClientesPage> {
           )
         ],
       ),
-    );
+      ), // Container
+    ); // GestureDetector
   }
 
 

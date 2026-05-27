@@ -389,7 +389,7 @@ class PedidoDetalhesPage extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           // ATENÇÃO: Substitua 'NovoPedidoPage' pelo nome correto da sua tela de carrinho/pedido
-                          builder: (context) => NovoPedidoPage(pedidoExistente: pedido),
+                          builder: (context) => const NovoPedidoPage(),
                         ),
                       );
                     },

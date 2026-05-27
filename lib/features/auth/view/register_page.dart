@@ -118,7 +118,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                           letterSpacing: -0.5)),
                                   Text('IMMA Atacadista',
                                       style: TextStyle(
-                                          color: Color.fromARGB(153, 243, 241, 241),
+                                          color: Color.fromARGB(153, 255, 255, 255),
                                           fontSize: 20)),
                                 ],
                               ),

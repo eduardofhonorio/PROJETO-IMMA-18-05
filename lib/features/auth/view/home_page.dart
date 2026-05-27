@@ -115,9 +115,8 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       Image.asset(
                         "assets/images/logo_IMMA.png",
-                        height: 50,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(Icons.local_shipping, size: 40, color: Colors.white),
+                    height: 90,
+                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.local_shipping, size: 60, color: Colors.white),
                       ),
                       Row(
                       children: [

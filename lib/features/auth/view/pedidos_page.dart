@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:projeto02/app/routes/app_routes.dart';
 import 'package:projeto02/features/auth/view/pedido_detalhes_page.dart';
-import 'package:projeto02/features/auth/view/perfil_page.dart';
 
 
 class PedidosPage extends StatefulWidget {
@@ -18,7 +17,8 @@ class _PedidosPageState extends State<PedidosPage> {
   final Color corFundo = const Color(0xFFF9F9F9); 
 
   String _termoBusca = '';
-  String _filtroData = 'Todos'; 
+  String _filtroData = 'Todos';
+  String _ordemSelecionada = 'Mais recentes';
 
   final List<String> _opcoesFiltro = ['Todos', 'Hoje', 'Ontem', 'Últimos 7 dias'];
 
@@ -62,18 +62,13 @@ class _PedidosPageState extends State<PedidosPage> {
                 children: [
                   Image.asset(
                     "assets/images/logo_IMMA.png",
-                    height: 50,
+                    height: 90,
                     errorBuilder: (context, error, stackTrace) =>
-                        const Icon(Icons.local_shipping, size: 40, color: Colors.white),
+                        const Icon(Icons.local_shipping, size: 60, color: Colors.white),
                   ),
                   Row(
                     children: [
-                      _buildHeaderIcon(Icons.person_outline, 'Perfil', onTap: () {
-                         Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const PerfilPage()),
-                         );
-                      }),
+                      _buildHeaderIcon(Icons.person_outline, 'Perfil', onTap: () {}),
                     ],
                   ),
                 ],
@@ -107,44 +102,22 @@ class _PedidosPageState extends State<PedidosPage> {
 
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: TextField(
-                                onChanged: (valor) => setState(() => _termoBusca = valor.toLowerCase()),
-                                decoration: const InputDecoration(
-                                  hintText: 'Buscar pedidos por cliente ou número...',
-                                  hintStyle: TextStyle(fontSize: 14, color: Colors.black45),
-                                  prefixIcon: Icon(Icons.search, color: Colors.black54),
-                                  border: InputBorder.none,
-                                  contentPadding: EdgeInsets.symmetric(vertical: 14),
-                                ),
-                              ),
-                            ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: TextField(
+                          onChanged: (valor) => setState(() => _termoBusca = valor.toLowerCase()),
+                          decoration: const InputDecoration(
+                            hintText: 'Buscar pedidos por cliente ou número...',
+                            hintStyle: TextStyle(fontSize: 14, color: Colors.black45),
+                            prefixIcon: Icon(Icons.search, color: Colors.black54),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(vertical: 14),
                           ),
-                          const SizedBox(width: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.filter_alt_outlined, color: corPrimaria, size: 20),
-                                const SizedBox(width: 6),
-                                const Text('Filtros', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
-                              ],
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -204,10 +177,25 @@ class _PedidosPageState extends State<PedidosPage> {
 
                           final todosPedidos = snapshot.data!.docs.toList();
                           todosPedidos.sort((a, b) {
-                            Timestamp? tA = (a.data() as Map<String, dynamic>)['criadoEm'] as Timestamp?;
-                            Timestamp? tB = (b.data() as Map<String, dynamic>)['criadoEm'] as Timestamp?;
-                            if (tA == null || tB == null) return 0;
-                            return tB.compareTo(tA);
+                            final mapA = a.data() as Map<String, dynamic>;
+                            final mapB = b.data() as Map<String, dynamic>;
+                            Timestamp? tA = mapA['criadoEm'] as Timestamp?;
+                            Timestamp? tB = mapB['criadoEm'] as Timestamp?;
+                            double totalA = (mapA['total'] ?? 0.0).toDouble();
+                            double totalB = (mapB['total'] ?? 0.0).toDouble();
+
+                            switch (_ordemSelecionada) {
+                              case 'Mais antigos':
+                                if (tA == null || tB == null) return 0;
+                                return tA.compareTo(tB);
+                              case 'Maior valor':
+                                return totalB.compareTo(totalA);
+                              case 'Menor valor':
+                                return totalA.compareTo(totalB);
+                              default: // 'Mais recentes'
+                                if (tA == null || tB == null) return 0;
+                                return tB.compareTo(tA);
+                            }
                           });
 
                           DateTime agora = DateTime.now();
@@ -261,29 +249,37 @@ class _PedidosPageState extends State<PedidosPage> {
                                         ],
                                       ),
                                     ),
-                                    const Text('Ordenar por', style: TextStyle(fontSize: 12, color: Colors.black54)),
-                                    const SizedBox(width: 4),
-                                    const Text('Mais recentes', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                    const Icon(Icons.keyboard_arrow_down, size: 16),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        const Text('Ordenar por', style: TextStyle(fontSize: 10, color: Colors.black54)),
+                                        DropdownButton<String>(
+                                          value: _ordemSelecionada,
+                                          isDense: true,
+                                          underline: const SizedBox(),
+                                          icon: const Icon(Icons.keyboard_arrow_down, size: 16),
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
+                                          items: ['Mais recentes', 'Mais antigos', 'Maior valor', 'Menor valor']
+                                              .map((o) => DropdownMenuItem(value: o, child: Text(o)))
+                                              .toList(),
+                                          onChanged: (v) => setState(() => _ordemSelecionada = v!),
+                                        ),
+                                      ],
+                                    ),
                                   ],
                                 ),
                               ),
                               const SizedBox(height: 8),
 
- Expanded(
+                              Expanded(
                                 child: ListView.builder(
                                   padding: const EdgeInsets.only(left: 24, right: 24, bottom: 100),
                                   itemCount: pedidosFiltrados.length,
                                   itemBuilder: (context, index) {
-                                    var pedido = pedidosFiltrados[index].data() as Map<String, dynamic>;
-                                    
-                                    // === ADICIONE ESTA LINHA AQUI ===
-                                    pedido['id'] = pedidosFiltrados[index].id;
-                                    // ================================
-                                    
-                                    var idVisual = pedidosFiltrados[index].id.substring(0, 6).toUpperCase(); 
-                                    
-                                    return _buildPedidoCard(pedido, idVisual);
+                                    final doc = pedidosFiltrados[index];
+                                    final pedido = doc.data() as Map<String, dynamic>;
+                                    final idVisual = doc.id.substring(0, 6).toUpperCase();
+                                    return _buildPedidoCard(doc.id, pedido, idVisual);
                                   },
                                 ),
                               ),
@@ -340,15 +336,21 @@ class _PedidosPageState extends State<PedidosPage> {
     );
   }
 
-  Widget _buildPedidoCard(Map<String, dynamic> pedido, String idCurto) {
+  Widget _buildPedidoCard(String pedidoId, Map<String, dynamic> pedido, String idCurto) {
     String nome = pedido['clienteNome'] ?? 'Cliente Desconhecido';
     double total = (pedido['total'] ?? 0.0).toDouble();
     String statusStr = pedido['status'] ?? 'Pendente';
-    
     String dataFormatada = _formatarData(pedido['criadoEm'] as Timestamp?);
     Map<String, dynamic> uiStatus = _getEstiloStatus(statusStr);
 
-    return Container(
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PedidoDetalhesPage(pedidoId: pedidoId),
+        ),
+      ),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -397,50 +399,36 @@ class _PedidosPageState extends State<PedidosPage> {
             ),
           ),
           
-  Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('R\$ ${total.toStringAsFixed(2).replaceAll('.', ',')}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
+              const SizedBox(height: 4),
+              Row(
                 children: [
-                  Text(
-                    'R\$ ${total.toStringAsFixed(2).replaceAll('.', ',')}', 
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.calendar_today, size: 12, color: Colors.black54),
-                      const SizedBox(width: 4),
-                      Text(dataFormatada, style: const TextStyle(fontSize: 12, color: Colors.black54)),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  
-                  // === GESTURE DETECTOR ADICIONADO AQUI ===
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => PedidoDetalhesPage(pedido: pedido),
-                        ),
-                      );
-                    },
-                    child: Row(
-                      children: [
-                        const Icon(Icons.visibility_outlined, size: 16, color: Colors.black54),
-                        const SizedBox(width: 4),
-                        const Text('Visualizar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.chevron_right, size: 18, color: Colors.black54),
-                      ],
-                    ),
-                  )
-                  // =========================================
+                  const Icon(Icons.calendar_today, size: 12, color: Colors.black54),
+                  const SizedBox(width: 4),
+                  Text(dataFormatada, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Icon(Icons.visibility_outlined, size: 16, color: Colors.black54),
+                  const SizedBox(width: 4),
+                  const Text('Visualizar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.chevron_right, size: 18, color: Colors.black54),
                 ],
               )
             ],
-          ),
-    );
+          )
+        ],
+      ),
+      ), // Container
+    ); // GestureDetector
   }
+
 
   Widget _buildHeaderIcon(IconData icon, String label, {String? badge, required VoidCallback onTap}) {
     return GestureDetector(

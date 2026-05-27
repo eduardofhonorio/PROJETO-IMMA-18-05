@@ -1,413 +1,578 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:projeto02/features/auth/view/novo_pedido_page.dart';
 
-class PedidoDetalhesPage extends StatelessWidget {
-  final Map<String, dynamic> pedido;
+class PedidoDetalhesPage extends StatefulWidget {
+  final String pedidoId;
 
-  const PedidoDetalhesPage({super.key, required this.pedido});
+  const PedidoDetalhesPage({super.key, required this.pedidoId});
 
-  final Color corPrimaria = const Color(0xFF480404);
-  final Color corFundo = const Color(0xFFF8F9FA);
+  @override
+  State<PedidoDetalhesPage> createState() => _PedidoDetalhesPageState();
+}
 
-  // Formatação de Moeda
-  String _formatarMoeda(double valor) {
-    return 'R\$ ${valor.toStringAsFixed(2).replaceAll('.', ',')}';
-  }
+class _PedidoDetalhesPageState extends State<PedidoDetalhesPage> {
+  static const Color corPrimaria = Color(0xFF480404);
+  static const Color corBotao = Color(0xFFB70000);
+  static const Color corFundo = Color(0xFFF9F9F9);
 
-  // Tag de Status
-  Widget _buildStatusTag(String? status) {
-    String s = status ?? 'Concluído';
-    Color bgColor = Colors.green.shade50;
-    Color textColor = Colors.green.shade700;
-    IconData icon = Icons.check_circle_outline;
+  bool _atualizandoStatus = false;
 
-    if (s.toLowerCase().contains('preparo')) {
-      bgColor = Colors.blue.shade50;
-      textColor = Colors.blue.shade700;
-      icon = Icons.hourglass_top;
-    } else if (s.toLowerCase().contains('entrega')) {
-      bgColor = Colors.orange.shade50;
-      textColor = Colors.orange.shade800;
-      icon = Icons.local_shipping_outlined;
-    } else if (s.toLowerCase().contains('agendado')) {
-      bgColor = Colors.purple.shade50;
-      textColor = Colors.purple.shade700;
-      icon = Icons.schedule;
-    } else if (s.toLowerCase().contains('cancelado')) {
-      bgColor = Colors.grey.shade200;
-      textColor = Colors.grey.shade800;
-      icon = Icons.remove_circle_outline;
-    } else if (s.toLowerCase().contains('pendente')) {
-      bgColor = Colors.green.shade50;
-      textColor = Colors.green.shade700;
-      icon = Icons.check_circle_outline;
-    }
+  // Definição de todos os status disponíveis com visual
+  static const List<Map<String, dynamic>> _statusDisponiveis = [
+    {
+      'valor': 'Pendente',
+      'icone': Icons.hourglass_empty_rounded,
+      'cor': Color(0xFF1565C0),
+      'fundo': Color(0xFFE3F2FD),
+      'descricao': 'Pedido recebido, aguardando confirmação.',
+    },
+    {
+      'valor': 'Em Preparo',
+      'icone': Icons.inventory_2_outlined,
+      'cor': Color(0xFF6A1B9A),
+      'fundo': Color(0xFFF3E5F5),
+      'descricao': 'O pedido está sendo separado no estoque.',
+    },
+    {
+      'valor': 'Saiu para Entrega',
+      'icone': Icons.local_shipping_outlined,
+      'cor': Color(0xFFE65100),
+      'fundo': Color(0xFFFFF3E0),
+      'descricao': 'Pedido a caminho do cliente.',
+    },
+    {
+      'valor': 'Concluído',
+      'icone': Icons.check_circle_outline_rounded,
+      'cor': Color(0xFF2E7D32),
+      'fundo': Color(0xFFE8F5E9),
+      'descricao': 'Entregue e confirmado pelo cliente.',
+    },
+    {
+      'valor': 'Cancelado',
+      'icone': Icons.cancel_outlined,
+      'cor': Color(0xFF616161),
+      'fundo': Color(0xFFF5F5F5),
+      'descricao': 'Pedido cancelado.',
+    },
+  ];
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: textColor.withOpacity(0.2)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: textColor),
-          const SizedBox(width: 4),
-          Text(s, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor)),
-        ],
-      ),
+  Map<String, dynamic> _getEstiloStatus(String status) {
+    return _statusDisponiveis.firstWhere(
+      (s) => s['valor'].toString().toLowerCase() == status.toLowerCase(),
+      orElse: () => _statusDisponiveis.first,
     );
   }
 
-  // === LÓGICA DE EXCLUSÃO COM MODAL DE CONFIRMAÇÃO ===
-   void _confirmarExclusao(BuildContext contextPrincipal) {
-    showDialog(
-      context: contextPrincipal,
-      builder: (BuildContext contextDialog) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 28),
-            const SizedBox(width: 8),
-            const Text('Excluir Pedido?'),
-          ],
-        ),
-        content: const Text(
-          'Tem certeza que deseja excluir este pedido permanentemente? Essa ação não poderá ser desfeita.',
-          style: TextStyle(color: Colors.black87),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(contextDialog), // Fecha apenas o Modal
-            child: const Text('Cancelar', style: TextStyle(color: Colors.black54, fontWeight: FontWeight.bold)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              // 1. Fecha o Modal de confirmação primeiro usando o contextDialog
-              Navigator.pop(contextDialog);
-              
-              final String? idPedido = pedido['id']; 
-              
-              if (idPedido != null && idPedido.isNotEmpty) {
-                try {
-                  // 2. Deleta o pedido no banco de dados Firebase
-                  await FirebaseFirestore.instance.collection('pedidos').doc(idPedido).delete();
-                  
-                  // 3. Usa o contexto da TELA PRINCIPAL para exibir o aviso e fechar a página inteira
-                  if (contextPrincipal.mounted) {
-                    ScaffoldMessenger.of(contextPrincipal).showSnackBar(
-                      const SnackBar(content: Text('Pedido excluído com sucesso!'), backgroundColor: Colors.green),
-                    );
-                    
-                    // Fecha a página de Detalhes do Pedido e volta para a lista automaticamente
-                    Navigator.pop(contextPrincipal); 
-                  }
-                } catch (e) {
-                  if (contextPrincipal.mounted) {
-                    ScaffoldMessenger.of(contextPrincipal).showSnackBar(
-                      SnackBar(content: Text('Erro ao excluir: $e'), backgroundColor: Colors.red),
-                    );
-                  }
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade700,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  String _formatarData(Timestamp? timestamp) {
+    if (timestamp == null) return 'Data não informada';
+    final d = timestamp.toDate();
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year} às ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+  }
+
+  // ==========================================
+  // ATUALIZAR STATUS NO FIRESTORE
+  // ==========================================
+  Future<void> _atualizarStatus(String novoStatus) async {
+    setState(() => _atualizandoStatus = true);
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('pedidos')
+          .doc(widget.pedidoId)
+          .update({
+        'status': novoStatus,
+        'atualizadoEm': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+                Text('Status atualizado para "$novoStatus"'),
+              ],
             ),
-            child: const Text('Sim, Excluir', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.green.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10)),
           ),
-        ],
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao atualizar status: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _atualizandoStatus = false);
+    }
+  }
+
+  // ==========================================
+  // BOTTOM SHEET DE TROCA DE STATUS
+  // ==========================================
+  void _abrirSeletorDeStatus(String statusAtual) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Indicador de arraste
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24.0),
+                child: Row(
+                  children: [
+                    Icon(Icons.swap_horiz_rounded,
+                        color: corPrimaria, size: 22),
+                    SizedBox(width: 10),
+                    Text(
+                      'Alterar status do pedido',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24.0),
+                child: Text(
+                  'Selecione o novo status para este pedido.',
+                  style: TextStyle(fontSize: 13, color: Colors.black54),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Divider(height: 1, color: Colors.black12),
+
+              ...(_statusDisponiveis.map((status) {
+                final bool isSelecionado =
+                    status['valor'].toString().toLowerCase() ==
+                        statusAtual.toLowerCase();
+
+                return ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isSelecionado
+                          ? status['cor']
+                          : (status['fundo'] as Color),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      status['icone'] as IconData,
+                      color: isSelecionado ? Colors.white : status['cor'],
+                      size: 22,
+                    ),
+                  ),
+                  title: Text(
+                    status['valor'],
+                    style: TextStyle(
+                      fontWeight: isSelecionado
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                      color: isSelecionado
+                          ? status['cor']
+                          : Colors.black87,
+                      fontSize: 15,
+                    ),
+                  ),
+                  subtitle: Text(
+                    status['descricao'],
+                    style: const TextStyle(fontSize: 12, color: Colors.black45),
+                  ),
+                  trailing: isSelecionado
+                      ? Icon(Icons.check_circle_rounded,
+                          color: status['cor'], size: 22)
+                      : null,
+                  onTap: isSelecionado
+                      ? null // Status já selecionado: desabilita o tap
+                      : () {
+                          Navigator.pop(ctx);
+                          _atualizarStatus(status['valor']);
+                        },
+                );
+              }).toList()),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final clienteNome = pedido['clienteNome'] ?? 'Cliente Desconhecido';
-    final total = (pedido['total'] ?? 0).toDouble();
-    final pagamento = pedido['pagamento']?.toString() ?? 'À Vista';
-    final observacoes = pedido['observacoes'] ?? '';
-    final status = pedido['status'] ?? 'Pendente';
-    final List<dynamic> itens = pedido['itens'] ?? [];
-    
-    final criadoEm = pedido['criadoEm'] as Timestamp?;
-    final dataStr = criadoEm != null 
-        ? '${DateFormat('dd/MM/yyyy').format(criadoEm.toDate())} às ${DateFormat('HH:mm').format(criadoEm.toDate())}'
-        : 'Data indisponível';
-    final numPedido = '#${criadoEm?.seconds.toString().substring(0, 6) ?? '000000'}';
-
     return Scaffold(
       backgroundColor: corFundo,
       appBar: AppBar(
         backgroundColor: corPrimaria,
+        foregroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
-          tooltip: 'Voltar',
         ),
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Detalhes do Pedido', style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
-            Text('Acompanhe todas as informações do pedido', style: TextStyle(fontSize: 12, color: Colors.white70, fontWeight: FontWeight.normal)),
-          ],
+        title: Image.asset(
+          'assets/images/logo_IMMA.png',
+          height: 90,
+          errorBuilder: (_, __, ___) =>
+              const Icon(Icons.local_shipping, size: 60, color: Colors.white),
         ),
+        centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 1. CARD PRINCIPAL (Pedido e Cliente integrados)
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+
+      // StreamBuilder: reflete qualquer mudança de status em tempo real
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('pedidos')
+            .doc(widget.pedidoId)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+                child: CircularProgressIndicator(color: corPrimaria));
+          }
+
+          if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
+            return const Center(
+              child: Text('Pedido não encontrado.',
+                  style: TextStyle(color: Colors.black54)),
+            );
+          }
+
+          final pedido = snapshot.data!.data() as Map<String, dynamic>;
+          final String statusAtual = pedido['status'] ?? 'Pendente';
+          final String clienteNome =
+              pedido['clienteNome'] ?? 'Cliente não informado';
+          final double total = (pedido['total'] ?? 0.0).toDouble();
+          final String pagamento = pedido['pagamento'] ?? 'Não informado';
+          final String idCurto =
+              widget.pedidoId.substring(0, 6).toUpperCase();
+          final List itens = pedido['itens'] ?? [];
+          final estiloStatus = _getEstiloStatus(statusAtual);
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // CABEÇALHO DO PEDIDO
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(color: Colors.red.shade50, shape: BoxShape.circle),
-                        child: Icon(Icons.storefront, color: Colors.red.shade800, size: 28),
+                        padding: const EdgeInsets.all(14),
+                        decoration: const BoxDecoration(
+                            color: Color(0xFFFFF5F5), shape: BoxShape.circle),
+                        child: const Icon(Icons.receipt_long_outlined,
+                            color: corBotao, size: 32),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Pedido', style: TextStyle(fontSize: 12, color: Colors.black54)),
-                            Text(numPedido, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87)),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                const Icon(Icons.calendar_today_outlined, size: 14, color: Colors.black54),
-                                const SizedBox(width: 6),
-                                Text(dataStr, style: const TextStyle(fontSize: 12, color: Colors.black54)),
-                              ],
+                            Text(
+                              'Pedido #$idCurto',
+                              style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              clienteNome,
+                              style: const TextStyle(
+                                  fontSize: 14, color: Colors.black54),
+                            ),
+                            const SizedBox(height: 8),
+                            // BADGE DE STATUS ATUAL
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: estiloStatus['fundo'],
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(estiloStatus['icone'] as IconData,
+                                      size: 14,
+                                      color: estiloStatus['cor']),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    statusAtual,
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: estiloStatus['cor']),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      _buildStatusTag(status),
                     ],
                   ),
-                  const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Divider(height: 1, color: Colors.black12)),
-                  Row(
+                ),
+                const SizedBox(height: 16),
+
+                // INFORMAÇÕES DO PEDIDO
+                _buildSecao(
+                  titulo: 'Informações do pedido',
+                  icone: Icons.info_outline_rounded,
+                  conteudo: Column(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(color: Colors.red.shade50, shape: BoxShape.circle),
-                        child: Icon(Icons.person, color: Colors.red.shade800, size: 24),
-                      ),
-                      const SizedBox(width: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Cliente', style: TextStyle(fontSize: 12, color: Colors.black54)),
-                          Text(clienteNome, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
-                        ],
-                      )
+                      _buildInfoRow(Icons.calendar_today_outlined, 'Criado em',
+                          _formatarData(pedido['criadoEm'] as Timestamp?)),
+                      _buildInfoRow(Icons.payment_outlined, 'Pagamento',
+                          pagamento),
+                      _buildInfoRow(Icons.attach_money_rounded, 'Total',
+                          'R\$ ${total.toStringAsFixed(2).replaceAll('.', ',')}'),
                     ],
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
+                ),
+                const SizedBox(height: 16),
 
-            // 2. LISTA DE ITENS DO PEDIDO
-            Row(
-              children: [
-                Icon(Icons.shopping_bag_outlined, color: corPrimaria, size: 20),
-                const SizedBox(width: 8),
-                Text('Itens do pedido (${itens.length})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
-              ),
-              child: ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: itens.length,
-                separatorBuilder: (context, index) => const Divider(height: 1, color: Colors.black12),
-                itemBuilder: (context, index) {
-                  final item = itens[index];
-                  final nomeItem = item['nome'] ?? 'Produto';
-                  final qtd = (item['quantidade'] ?? 1).toInt();
-                  final preco = (item['preco'] ?? 0).toDouble();
-                  final totalItem = qtd * preco;
+                // ITENS DO PEDIDO
+                _buildSecao(
+                  titulo: 'Itens (${itens.length})',
+                  icone: Icons.shopping_bag_outlined,
+                  conteudo: itens.isEmpty
+                      ? const Text('Nenhum item registrado.',
+                          style: TextStyle(color: Colors.black54))
+                      : Column(
+                          children: itens.asMap().entries.map((entry) {
+                            final int i = entry.key;
+                            final item = entry.value as Map<String, dynamic>;
+                            final nome = item['nome'] ?? 'Produto';
+                            final int qtd = (item['quantidade'] ?? 1) as int;
+                            final double preco =
+                                (item['preco'] ?? 0.0).toDouble();
+                            final double subtotal = qtd * preco;
 
-                  return Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 60,
-                          height: 60,
-                          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
-                          child: Icon(Icons.image_outlined, color: Colors.grey.shade400, size: 28),
+                            return Column(
+                              children: [
+                                if (i > 0)
+                                  Divider(
+                                      color: Colors.grey.shade100, height: 16),
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade100,
+                                        borderRadius:
+                                            BorderRadius.circular(8),
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          '$qtd',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black87),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(nome,
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 14,
+                                                  color: Colors.black87)),
+                                          Text(
+                                            '${qtd}x  R\$ ${preco.toStringAsFixed(2).replaceAll('.', ',')}',
+                                            style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.black45),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      'R\$ ${subtotal.toStringAsFixed(2).replaceAll('.', ',')}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: Colors.black87),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          }).toList(),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(nomeItem, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87), maxLines: 2, overflow: TextOverflow.ellipsis),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  Text('${qtd}x ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: corPrimaria)),
-                                  Text(_formatarMoeda(preco), style: const TextStyle(fontSize: 13, color: Colors.black54)),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(_formatarMoeda(totalItem), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: corPrimaria)),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 32),
+                ),
+                const SizedBox(height: 16),
 
-            // 3. RESUMO DO PEDIDO
-            Row(
-              children: [
-                Icon(Icons.receipt_long_outlined, color: corPrimaria, size: 20),
-                const SizedBox(width: 8),
-                const Text('Resumo do pedido', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red.shade50, shape: BoxShape.circle), child: const Icon(Icons.calendar_today_outlined, size: 16, color: Colors.black87)),
-                      const SizedBox(width: 12),
-                      const Text('Condição de Pagamento', style: TextStyle(color: Colors.black54, fontSize: 14)),
-                      const Spacer(),
-                      Text(pagamento, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 14)),
-                    ],
+                // TOTAL FINAL
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: corPrimaria,
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red.shade50, shape: BoxShape.circle), child: const Icon(Icons.local_offer_outlined, size: 16, color: Colors.black87)),
-                      const SizedBox(width: 12),
-                      const Text('Subtotal', style: TextStyle(color: Colors.black54, fontSize: 14)),
-                      const Spacer(),
-                      Text(_formatarMoeda(total), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 14)),
-                    ],
-                  ),
-                  const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Divider(height: 1, color: Colors.black12)),
-                  Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Total do Pedido', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87)),
-                      Text(_formatarMoeda(total), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: corPrimaria)),
+                      const Text('Total do pedido',
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500)),
+                      Text(
+                        'R\$ ${total.toStringAsFixed(2).replaceAll('.', ',')}',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold),
+                      ),
                     ],
                   ),
-                ],
-              ),
-            ),
-
-            if (observacoes.toString().trim().isNotEmpty) ...[
-              const SizedBox(height: 32),
-              Row(
-                children: [
-                  Icon(Icons.notes, color: corPrimaria, size: 20),
-                  const SizedBox(width: 8),
-                  const Text('Observações', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: Colors.yellow.shade50, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.yellow.shade200)),
-                child: Text(observacoes, style: TextStyle(fontSize: 14, color: Colors.yellow.shade900)),
-              ),
-            ],
-            const SizedBox(height: 40),
-
-            // ==========================================
-            // 4. BOTÕES DE AÇÃO (EDITAR E EXCLUIR)
-            // ==========================================
-            Row(
-              children: [
-                // Botão Excluir (Outlined)
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _confirmarExclusao(context),
-                    icon: Icon(Icons.delete_outline, color: Colors.red.shade700, size: 20),
-                    label: Text('Excluir', style: TextStyle(color: Colors.red.shade700, fontSize: 15, fontWeight: FontWeight.bold)),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      side: BorderSide(color: Colors.red.shade200, width: 1.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      backgroundColor: Colors.white,
-                    ),
-                  ),
                 ),
-                const SizedBox(width: 12),
-                
-              Expanded(
+                const SizedBox(height: 32),
+
+                // BOTÃO ALTERAR STATUS
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          // ATENÇÃO: Substitua 'NovoPedidoPage' pelo nome correto da sua tela de carrinho/pedido
-                          builder: (context) => const NovoPedidoPage(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.edit, color: Colors.white, size: 20),
-                    label: const Text('Editar', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: corPrimaria,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: corBotao,
+                      foregroundColor: Colors.white,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                    onPressed: _atualizandoStatus
+                        ? null
+                        : () => _abrirSeletorDeStatus(statusAtual),
+                    icon: _atualizandoStatus
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2))
+                        : const Icon(Icons.swap_horiz_rounded, size: 22),
+                    label: Text(
+                      _atualizandoStatus
+                          ? 'Atualizando...'
+                          : 'Alterar Status do Pedido',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
+                const SizedBox(height: 32),
               ],
             ),
-            const SizedBox(height: 32),
-          ],
-        ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ==========================================
+  // WIDGETS AUXILIARES
+  // ==========================================
+  Widget _buildSecao(
+      {required String titulo,
+      required IconData icone,
+      required Widget conteudo}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icone, color: corBotao, size: 18),
+              const SizedBox(width: 8),
+              Text(titulo,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Colors.black87)),
+            ],
+          ),
+          const Divider(height: 20, color: Colors.black12),
+          conteudo,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String valor) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.black38, size: 18),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style:
+                        const TextStyle(fontSize: 11, color: Colors.black45)),
+                const SizedBox(height: 2),
+                Text(valor,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

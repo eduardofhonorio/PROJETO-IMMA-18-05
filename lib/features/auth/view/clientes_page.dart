@@ -16,9 +16,9 @@ class _ClientesPageState extends State<ClientesPage> {
   final Color corFundo = const Color(0xFFF9F9F9); 
   final Color corBotao = const Color(0xFFB70000);
 
-  // Variáveis de Filtro
   String _cidadeSelecionada = 'Todos';
   String _termoBusca = '';
+  String _ordemSelecionada = 'Nome (A-Z)';
 
   final List<String> _cidadesFiltro = [
     'Todos',
@@ -48,8 +48,8 @@ class _ClientesPageState extends State<ClientesPage> {
                 children: [
                   Image.asset(
                     "assets/images/logo_IMMA.png",
-                    height: 50, // Voltei para o tamanho original
-                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.local_shipping, size: 40, color: Colors.white),
+                    height: 90,
+                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.local_shipping, size: 60, color: Colors.white),
                   ),
                   // Ícones da direita
                   Row(
@@ -78,44 +78,22 @@ class _ClientesPageState extends State<ClientesPage> {
 
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: TextField(
-                                onChanged: (valor) => setState(() => _termoBusca = valor.toLowerCase()),
-                                decoration: const InputDecoration(
-                                  hintText: 'Buscar clientes por nome, CNPJ ou código...',
-                                  hintStyle: TextStyle(fontSize: 13, color: Colors.black45),
-                                  prefixIcon: Icon(Icons.search, color: Colors.black54),
-                                  border: InputBorder.none,
-                                  contentPadding: EdgeInsets.symmetric(vertical: 14),
-                                ),
-                              ),
-                            ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: TextField(
+                          onChanged: (valor) => setState(() => _termoBusca = valor.toLowerCase()),
+                          decoration: const InputDecoration(
+                            hintText: 'Buscar clientes por nome, CNPJ ou código...',
+                            hintStyle: TextStyle(fontSize: 13, color: Colors.black45),
+                            prefixIcon: Icon(Icons.search, color: Colors.black54),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(vertical: 14),
                           ),
-                          const SizedBox(width: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.filter_alt_outlined, color: corPrimaria, size: 20),
-                                const SizedBox(width: 6),
-                                const Text('Filtros', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
-                              ],
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -183,8 +161,19 @@ class _ClientesPageState extends State<ClientesPage> {
                             
                             String nomeA = (mapA['nomeFantasia']?.toString().isNotEmpty == true ? mapA['nomeFantasia'] : mapA['razaoSocial']) ?? '';
                             String nomeB = (mapB['nomeFantasia']?.toString().isNotEmpty == true ? mapB['nomeFantasia'] : mapB['razaoSocial']) ?? '';
-                            
-                            return nomeA.toLowerCase().compareTo(nomeB.toLowerCase());
+                            int pedidosA = int.tryParse(mapA['pedidos']?.toString() ?? '0') ?? 0;
+                            int pedidosB = int.tryParse(mapB['pedidos']?.toString() ?? '0') ?? 0;
+
+                            switch (_ordemSelecionada) {
+                              case 'Nome (Z-A)':
+                                return nomeB.toLowerCase().compareTo(nomeA.toLowerCase());
+                              case 'Mais pedidos':
+                                return pedidosB.compareTo(pedidosA);
+                              case 'Menos pedidos':
+                                return pedidosA.compareTo(pedidosB);
+                              default: // 'Nome (A-Z)'
+                                return nomeA.toLowerCase().compareTo(nomeB.toLowerCase());
+                            }
                           });
 
                           // (Busca + Cidade)
@@ -239,12 +228,17 @@ class _ClientesPageState extends State<ClientesPage> {
                                       crossAxisAlignment: CrossAxisAlignment.end,
                                       children: [
                                         const Text('Ordenar por', style: TextStyle(fontSize: 10, color: Colors.black54)),
-                                        Row(
-                                          children: [
-                                            const Text('Nome (A-Z)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)),
-                                            const Icon(Icons.keyboard_arrow_down, size: 16),
-                                          ],
-                                        )
+                                        DropdownButton<String>(
+                                          value: _ordemSelecionada,
+                                          isDense: true,
+                                          underline: const SizedBox(),
+                                          icon: const Icon(Icons.keyboard_arrow_down, size: 16),
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
+                                          items: ['Nome (A-Z)', 'Nome (Z-A)', 'Mais pedidos', 'Menos pedidos']
+                                              .map((o) => DropdownMenuItem(value: o, child: Text(o)))
+                                              .toList(),
+                                          onChanged: (v) => setState(() => _ordemSelecionada = v!),
+                                        ),
                                       ],
                                     ),
                                   ],
